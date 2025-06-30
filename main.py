@@ -11,6 +11,7 @@ class JiraIssue(BaseModel):
     summary: str
     description: str
     issueType: str = "Task"
+    estimate: float = None  # in hours, optional
 
 @app.post("/create-jira-issue")
 def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
@@ -22,29 +23,35 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
         raise HTTPException(status_code=500, detail="Missing Jira credentials")
 
     if isinstance(input, JiraIssue):
-        input = [input]  # Convert single ticket to list
+        input = [input]  # Normalize to list
 
     results = []
     for issue in input:
-        payload = {
-            "fields": {
-                "project": {"key": issue.projectKey},
-                "summary": issue.summary,
-                "description": {
-                    "type": "doc",
-                    "version": 1,
-                    "content": [
-                        {
-                            "type": "paragraph",
-                            "content": [
-                                {"type": "text", "text": issue.description}
-                            ]
-                        }
-                    ]
-                },
-                "issuetype": {"name": issue.issueType}
-            }
+        fields = {
+            "project": {"key": issue.projectKey},
+            "summary": issue.summary,
+            "description": {
+                "type": "doc",
+                "version": 1,
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [
+                            {"type": "text", "text": issue.description}
+                        ]
+                    }
+                ]
+            },
+            "issuetype": {"name": issue.issueType},
         }
+
+        # Add estimate as originalEstimate in minutes if provided
+        if issue.estimate:
+            fields["timetracking"] = {
+                "originalEstimate": f"{round(issue.estimate * 60)}m"
+            }
+
+        payload = {"fields": fields}
 
         response = requests.post(
             f"{JIRA_BASE_URL}/rest/api/3/issue",
