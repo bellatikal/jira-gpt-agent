@@ -13,6 +13,26 @@ class JiraIssue(BaseModel):
     issueType: str = "Task"
     estimate: float = None  # in hours, optional
 
+def format_estimate(hours: float) -> str:
+    total_minutes = int(hours * 60)
+    weeks = total_minutes // (5 * 8 * 60)
+    days = (total_minutes % (5 * 8 * 60)) // (8 * 60)
+    remaining_minutes = total_minutes % (8 * 60)
+    h = remaining_minutes // 60
+    m = remaining_minutes % 60
+
+    parts = []
+    if weeks > 0:
+        parts.append(f"{weeks}w")
+    if days > 0:
+        parts.append(f"{days}d")
+    if h > 0:
+        parts.append(f"{h}h")
+    if m > 0:
+        parts.append(f"{m}m")
+
+    return " ".join(parts) if parts else "1h"
+
 @app.post("/create-jira-issue")
 def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
     JIRA_EMAIL = os.getenv("JIRA_EMAIL")
@@ -45,10 +65,13 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
             "issuetype": {"name": issue.issueType},
         }
 
-        # Add estimate as originalEstimate in minutes if provided
+        # Attempt to apply estimate, skip if Jira rejects it
         if issue.estimate:
-            print("Estimate provided but not applied due to Jira screen settings.")
-
+            try:
+                estimate_str = format_estimate(issue.estimate)
+                fields["timetracking"] = {"originalEstimate": estimate_str}
+            except Exception as e:
+                print(f"Estimate provided but not applied due to Jira screen settings. error: {e}")
 
         payload = {"fields": fields}
 
