@@ -28,7 +28,22 @@ def create_jira_issue(issue: JiraIssue):
         "fields": {
             "project": {"key": issue.projectKey},
             "summary": issue.summary,
-            "description": issue.description,
+            "description": {
+                "type": "doc",
+                "version": 1,
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": issue.description
+                            }
+                        ]
+                    }
+                ]
+            },
+
             "issuetype": {"name": issue.issueType}
         }
     }
