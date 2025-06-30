@@ -47,9 +47,8 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
 
         # Add estimate as originalEstimate in minutes if provided
         if issue.estimate:
-            fields["timetracking"] = {
-                "originalEstimate": f"{round(issue.estimate * 60)}m"
-            }
+            print("Estimate provided but not applied due to Jira screen settings.")
+
 
         payload = {"fields": fields}
 
