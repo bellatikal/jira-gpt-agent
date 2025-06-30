@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import List, Union
 import requests
 import os
 
@@ -12,48 +13,53 @@ class JiraIssue(BaseModel):
     issueType: str = "Task"
 
 @app.post("/create-jira-issue")
-def create_jira_issue(issue: JiraIssue):
+def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
     JIRA_EMAIL = os.getenv("JIRA_EMAIL")
     JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
-    JIRA_BASE_URL = os.getenv("JIRA_BASE_URL")  # e.g. https://yourcompany.atlassian.net
+    JIRA_BASE_URL = os.getenv("JIRA_BASE_URL")
 
     if not (JIRA_EMAIL and JIRA_API_TOKEN and JIRA_BASE_URL):
         raise HTTPException(status_code=500, detail="Missing Jira credentials")
 
-    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
-    url = f"{JIRA_BASE_URL}/rest/api/3/issue"
-    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    if isinstance(input, JiraIssue):
+        input = [input]  # Convert single ticket to list
 
-    payload = {
-        "fields": {
-            "project": {"key": issue.projectKey},
-            "summary": issue.summary,
-            "description": {
-                "type": "doc",
-                "version": 1,
-                "content": [
-                    {
-                        "type": "paragraph",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": issue.description
-                            }
-                        ]
-                    }
-                ]
-            },
-
-            "issuetype": {"name": issue.issueType}
+    results = []
+    for issue in input:
+        payload = {
+            "fields": {
+                "project": {"key": issue.projectKey},
+                "summary": issue.summary,
+                "description": {
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [
+                                {"type": "text", "text": issue.description}
+                            ]
+                        }
+                    ]
+                },
+                "issuetype": {"name": issue.issueType}
+            }
         }
-    }
 
-    response = requests.post(url, json=payload, headers=headers, auth=auth)
-    if response.status_code >= 400:
-        raise HTTPException(status_code=response.status_code, detail=response.text)
+        response = requests.post(
+            f"{JIRA_BASE_URL}/rest/api/3/issue",
+            json=payload,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            auth=(JIRA_EMAIL, JIRA_API_TOKEN)
+        )
 
-    data = response.json()
-    return {
-        "issueKey": data.get("key"),
-        "issueUrl": f"{JIRA_BASE_URL}/browse/{data.get('key')}"
-    }
+        if response.status_code >= 400:
+            results.append({"error": response.text})
+        else:
+            data = response.json()
+            results.append({
+                "issueKey": data.get("key"),
+                "issueUrl": f"{JIRA_BASE_URL}/browse/{data.get('key')}"
+            })
+
+    return results
