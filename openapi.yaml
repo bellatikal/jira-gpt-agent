@@ -1,0 +1,48 @@
+openapi: 3.0.1
+info:
+  title: Jira GPT Agent API
+  version: 1.0.0
+servers:
+  - url: https://jira-gpt-agent.onrender.com
+paths:
+  /create-jira-issue:
+    post:
+      operationId: createJiraIssue
+      summary: Create a new Jira ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectKey
+                - summary
+                - description
+              properties:
+                projectKey:
+                  type: string
+                  example: AAD
+                summary:
+                  type: string
+                  example: Add health checks to all services
+                description:
+                  type: string
+                  example: Ensure all deployed services expose a /healthz endpoint
+                issueType:
+                  type: string
+                  example: Task
+      responses:
+        '200':
+          description: Jira ticket created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  issueKey:
+                    type: string
+                    example: AAD-123
+                  issueUrl:
+                    type: string
+                    example: https://yourcompany.atlassian.net/browse/AAD-123
