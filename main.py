@@ -1,8 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Union
 import requests
 import os
+import time
+from fastapi.responses import StreamingResponse
 
 app = FastAPI()
 
@@ -92,3 +94,12 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
             })
 
     return results
+
+@app.get("/sse")
+def sse():
+    def event_stream():
+        yield "data: Hello from MCP-compatible SSE endpoint!\n\n"
+        while True:
+            time.sleep(5)
+            yield f"data: Heartbeat at {time.ctime()}\n\n"
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
