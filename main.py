@@ -97,10 +97,10 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
     return results
 
 @app.get("/sse")
-def sse(request: Request):
+def sse():
     def event_stream():
-        # Send tool metadata once
-        metadata = {
+        # Send tool metadata immediately
+        tool_metadata = {
             "event": "tool_metadata",
             "data": json.dumps({
                 "tools": [
@@ -114,7 +114,7 @@ def sse(request: Request):
                                 "summary": {"type": "string", "description": "The ticket title"},
                                 "description": {"type": "string", "description": "Details of the task"},
                                 "issueType": {"type": "string", "description": "Task type", "default": "Task"},
-                                "estimate": {"type": "number", "description": "Estimated hours (1-2)"}
+                                "estimate": {"type": "number", "description": "Estimated hours (1–2)"}
                             },
                             "required": ["projectKey", "summary", "description"]
                         }
@@ -122,12 +122,12 @@ def sse(request: Request):
                 ]
             })
         }
-        yield f"event: {metadata['event']}\ndata: {metadata['data']}\n\n"
+        yield f"event: {tool_metadata['event']}\ndata: {tool_metadata['data']}\n\n"
 
+        # Optional heartbeat to keep connection alive
         while True:
-            if await_request_data(request):
-                break
-            time.sleep(1)
+            time.sleep(15)
+            yield f"event: heartbeat\ndata: keepalive\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
