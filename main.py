@@ -4,6 +4,7 @@ from typing import List, Union
 import requests
 import os
 import time
+import json
 from fastapi.responses import StreamingResponse
 
 app = FastAPI()
@@ -96,10 +97,43 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
     return results
 
 @app.get("/sse")
-def sse():
+def sse(request: Request):
     def event_stream():
-        yield "data: Hello from MCP-compatible SSE endpoint!\n\n"
+        # Send tool metadata once
+        metadata = {
+            "event": "tool_metadata",
+            "data": json.dumps({
+                "tools": [
+                    {
+                        "name": "create_jira_ticket",
+                        "description": "Create a Jira ticket in a specific project.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "projectKey": {"type": "string", "description": "The Jira project key"},
+                                "summary": {"type": "string", "description": "The ticket title"},
+                                "description": {"type": "string", "description": "Details of the task"},
+                                "issueType": {"type": "string", "description": "Task type", "default": "Task"},
+                                "estimate": {"type": "number", "description": "Estimated hours (1-2)"}
+                            },
+                            "required": ["projectKey", "summary", "description"]
+                        }
+                    }
+                ]
+            })
+        }
+        yield f"event: {metadata['event']}\ndata: {metadata['data']}\n\n"
+
         while True:
-            time.sleep(5)
-            yield f"data: Heartbeat at {time.ctime()}\n\n"
+            if await_request_data(request):
+                break
+            time.sleep(1)
+
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+def await_request_data(request: Request):
+    return await_request_data
+
+@app.post("/tool/create_jira_ticket")
+def handle_create_jira_ticket(input: JiraIssue):
+    return create_jira_issues(input)
