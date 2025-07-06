@@ -92,9 +92,9 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
             else:
                 print(f"Warning: Assignee '{issue.assignee}' not found.")
 
-        # Epic (assume customfield_10011; update if yours is different)
+        # Epic (assume customfield_10014; update if yours is different)
         if issue.epic:
-            fields["customfield_10011"] = issue.epic
+            fields["customfield_10014"] = issue.epic
 
         payload = {"fields": fields}
 
