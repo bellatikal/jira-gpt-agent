@@ -16,7 +16,7 @@ class JiraIssue(BaseModel):
     issueType: str = "Task"
     estimate: float = None  # in hours, optional
     assignee: str = None  # display name
-    epic: str = None      # must be an issue key like AAD-15
+    epic: str = None      # must be an epic issue key
 
 def format_estimate(hours: float) -> str:
     total_minutes = int(hours * 60)
@@ -53,6 +53,7 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
     results = []
     for issue in input:
         print("Received issue input from GPT:", issue.dict())
+
         fields = {
             "project": {"key": issue.projectKey},
             "summary": issue.summary,
@@ -93,9 +94,9 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
             else:
                 print(f"Warning: Assignee '{issue.assignee}' not found or ambiguous.")
 
-        # Epic Link (must be an existing epic issue key)
+        # Epic Link for team-managed project: use 'parent' key
         if issue.epic:
-            fields["customfield_10014"] = issue.epic  # This is the confirmed Epic Link field ID
+            fields["parent"] = {"key": issue.epic}
 
         payload = {"fields": fields}
 
@@ -160,5 +161,7 @@ def sse():
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 @app.post("/tool/create_jira_ticket")
-def handle_create_jira_ticket(input: JiraIssue):
+async def handle_create_jira_ticket(input: JiraIssue, request: Request):
+    data = await request.json()
+    print("🔥 Raw incoming GPT tool call:", json.dumps(data, indent=2))
     return create_jira_issues(input)
