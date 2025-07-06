@@ -52,6 +52,7 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
 
     results = []
     for issue in input:
+        print("Received issue input from GPT:", issue.dict())
         fields = {
             "project": {"key": issue.projectKey},
             "summary": issue.summary,
