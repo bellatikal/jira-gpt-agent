@@ -150,6 +150,7 @@ def sse():
                 ]
             })
         }
+        print("Tool metadata JSON:", json.dumps(tool_metadata, indent=2))
         yield f"event: {tool_metadata['event']}\ndata: {tool_metadata['data']}\n\n"
 
         while True:
