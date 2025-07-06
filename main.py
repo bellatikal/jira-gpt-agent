@@ -16,7 +16,7 @@ class JiraIssue(BaseModel):
     issueType: str = "Task"
     estimate: float = None  # in hours, optional
     assignee: str = None  # display name
-    epic: str = None      # epic name or key
+    epic: str = None      # must be an issue key like AAD-15
 
 def format_estimate(hours: float) -> str:
     total_minutes = int(hours * 60)
@@ -90,13 +90,16 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
                 account_id = user_resp.json()[0]["accountId"]
                 fields["assignee"] = {"accountId": account_id}
             else:
-                print(f"Warning: Assignee '{issue.assignee}' not found.")
+                print(f"Warning: Assignee '{issue.assignee}' not found or ambiguous.")
 
-        # Epic (assume customfield_10014; update if yours is different)
+        # Epic Link (must be an existing epic issue key)
         if issue.epic:
-            fields["customfield_10014"] = issue.epic
+            fields["customfield_10014"] = issue.epic  # This is the confirmed Epic Link field ID
 
         payload = {"fields": fields}
+
+        print("Payload being sent to Jira:")
+        print(json.dumps(payload, indent=2))
 
         response = requests.post(
             f"{JIRA_BASE_URL}/rest/api/3/issue",
@@ -104,6 +107,9 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
             headers={"Content-Type": "application/json", "Accept": "application/json"},
             auth=(JIRA_EMAIL, JIRA_API_TOKEN)
         )
+
+        print("Jira response status:", response.status_code)
+        print("Response body:", response.text)
 
         if response.status_code >= 400:
             results.append({"error": response.text})
@@ -134,7 +140,7 @@ def sse():
                                 "description": {"type": "string", "description": "Details of the task"},
                                 "issueType": {"type": "string", "description": "Task type", "default": "Task"},
                                 "estimate": {"type": "number", "description": "Estimated hours (1–2)"},
-                                "epic": {"type": "string", "description": "Epic name or key to associate this issue with"},
+                                "epic": {"type": "string", "description": "Epic issue key (e.g. AAD-15)"},
                                 "assignee": {"type": "string", "description": "Display name of the user to assign the ticket to"}
                             },
                             "required": ["projectKey", "summary", "description"]
