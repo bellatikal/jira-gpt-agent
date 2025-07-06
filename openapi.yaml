@@ -23,15 +23,31 @@ paths:
                 projectKey:
                   type: string
                   example: AAD
+                  description: The Jira project key
                 summary:
                   type: string
                   example: Add health checks to all services
+                  description: One-line summary of the task
                 description:
                   type: string
                   example: Ensure all deployed services expose a /healthz endpoint
+                  description: Detailed explanation of the task
                 issueType:
                   type: string
                   example: Task
+                  description: Type of Jira issue (Task, Bug, Story)
+                estimate:
+                  type: number
+                  example: 1.5
+                  description: Estimated number of hours to complete
+                assignee:
+                  type: string
+                  example: Yuval Nahon
+                  description: Full display name of the person to assign
+                epic:
+                  type: string
+                  example: AAD-25
+                  description: Epic issue key this task belongs to
       responses:
         '200':
           description: Jira ticket created
