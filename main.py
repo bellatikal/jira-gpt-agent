@@ -15,6 +15,8 @@ class JiraIssue(BaseModel):
     description: str
     issueType: str = "Task"
     estimate: float = None  # in hours, optional
+    assignee: str = None  # display name
+    epic: str = None      # epic name or key
 
 def format_estimate(hours: float) -> str:
     total_minutes = int(hours * 60)
@@ -68,13 +70,31 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
             "issuetype": {"name": issue.issueType},
         }
 
-        # Attempt to apply estimate, skip if Jira rejects it
+        # Estimate
         if issue.estimate:
             try:
                 estimate_str = format_estimate(issue.estimate)
                 fields["timetracking"] = {"originalEstimate": estimate_str}
             except Exception as e:
-                print(f"Estimate provided but not applied due to Jira screen settings. error: {e}")
+                print(f"Estimate not applied: {e}")
+
+        # Assignee
+        if issue.assignee:
+            user_resp = requests.get(
+                f"{JIRA_BASE_URL}/rest/api/3/user/search",
+                params={"query": issue.assignee},
+                headers={"Accept": "application/json"},
+                auth=(JIRA_EMAIL, JIRA_API_TOKEN)
+            )
+            if user_resp.status_code == 200 and user_resp.json():
+                account_id = user_resp.json()[0]["accountId"]
+                fields["assignee"] = {"accountId": account_id}
+            else:
+                print(f"Warning: Assignee '{issue.assignee}' not found.")
+
+        # Epic (assume customfield_10011; update if yours is different)
+        if issue.epic:
+            fields["customfield_10011"] = issue.epic
 
         payload = {"fields": fields}
 
@@ -99,7 +119,6 @@ def create_jira_issues(input: Union[JiraIssue, List[JiraIssue]]):
 @app.get("/sse")
 def sse():
     def event_stream():
-        # Send tool metadata immediately
         tool_metadata = {
             "event": "tool_metadata",
             "data": json.dumps({
@@ -114,7 +133,9 @@ def sse():
                                 "summary": {"type": "string", "description": "The ticket title"},
                                 "description": {"type": "string", "description": "Details of the task"},
                                 "issueType": {"type": "string", "description": "Task type", "default": "Task"},
-                                "estimate": {"type": "number", "description": "Estimated hours (1–2)"}
+                                "estimate": {"type": "number", "description": "Estimated hours (1–2)"},
+                                "epic": {"type": "string", "description": "Epic name or key to associate this issue with"},
+                                "assignee": {"type": "string", "description": "Display name of the user to assign the ticket to"}
                             },
                             "required": ["projectKey", "summary", "description"]
                         }
@@ -124,15 +145,11 @@ def sse():
         }
         yield f"event: {tool_metadata['event']}\ndata: {tool_metadata['data']}\n\n"
 
-        # Optional heartbeat to keep connection alive
         while True:
             time.sleep(15)
             yield f"event: heartbeat\ndata: keepalive\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-def await_request_data(request: Request):
-    return await_request_data
 
 @app.post("/tool/create_jira_ticket")
 def handle_create_jira_ticket(input: JiraIssue):
